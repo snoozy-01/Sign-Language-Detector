@@ -1,50 +1,47 @@
 import os
 import pickle
-
 import mediapipe as mp
 import cv2
-import matplotlib.pyplot as plt
-
 
 mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
+hand_detector = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
 
-hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.3)
+IMAGE_DIR = './dataset'
 
-DATA_DIR = './data'
+features = []
+class_labels = []
+for class_folder in os.listdir(IMAGE_DIR):
+    for image_file in os.listdir(os.path.join(IMAGE_DIR, class_folder)):
+        feature_data = []
+        x_coordinates = []
+        y_coordinates = []
 
-data = []
-labels = []
-for dir_ in os.listdir(DATA_DIR):
-    for img_path in os.listdir(os.path.join(DATA_DIR, dir_)):
-        data_aux = []
+        image = cv2.imread(os.path.join(IMAGE_DIR, class_folder, image_file))
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        x_ = []
-        y_ = []
-
-        img = cv2.imread(os.path.join(DATA_DIR, dir_, img_path))
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        results = hands.process(img_rgb)
+        results = hand_detector.process(image_rgb)
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 for i in range(len(hand_landmarks.landmark)):
                     x = hand_landmarks.landmark[i].x
                     y = hand_landmarks.landmark[i].y
-
-                    x_.append(x)
-                    y_.append(y)
+                    x_coordinates.append(x)
+                    y_coordinates.append(y)
 
                 for i in range(len(hand_landmarks.landmark)):
                     x = hand_landmarks.landmark[i].x
                     y = hand_landmarks.landmark[i].y
-                    data_aux.append(x - min(x_))
-                    data_aux.append(y - min(y_))
+                    feature_data.append(x - min(x_coordinates))
+                    feature_data.append(y - min(y_coordinates))
 
-            data.append(data_aux)
-            labels.append(dir_)
+            features.append(feature_data)
+            class_labels.append(class_folder)
 
-f = open('data.pickle', 'wb')
-pickle.dump({'data': data, 'labels': labels}, f)
-f.close()
+# Save features and labels into a pickle file
+try:
+    with open('processed_data.pickle', 'wb') as file:
+        pickle.dump({'features': features, 'labels': class_labels}, file)
+    print("Feature extraction complete. Data saved to 'processed_data.pickle'.")
+except Exception as e:
+    print(f"An error occurred while saving the pickle file: {e}")
+
